@@ -19,23 +19,14 @@ class NodoFuncion(NodoAST):
         return f"def {self.nombre}({params}):\n    {cuerpo}"
     
     def generar_codigo(self):
-        codigo = [
-            f"{self.nombre}:",
-            "    push ebp",
-            "    mov ebp, esp"
-        ]
-        
-        # Generar codigo para cada instruccion en el cuerpo
-        for instruccion in self.cuerpo:
-            codigo.append(instruccion.generar_codigo())
-        
-        codigo.extend([
-            "    mov esp, ebp",
-            "    pop ebp",
-            "    ret\n"
-        ])
-        
-        return "\n".join(codigo)
+        codigo = f'{self.nombre}:\n'
+        codigo += "    push ebp\n"
+        codigo += "    mov ebp, esp\n"
+        codigo += "\n".join(c.generar_codigo() for c in self.cuerpo)
+        codigo += "\n    mov esp, ebp\n"
+        codigo += "    pop ebp\n"
+        codigo += "    ret\n"
+        return codigo
 
 class NodoParametro(NodoAST):
     # Nodo que representa un parametro de funcion
@@ -241,60 +232,21 @@ class NodoLlamadaFuncion(NodoAST):
         return "\n".join(codigo)
         
 class NodoPrograma(NodoAST):
+    """
+    Nodo que representa un programa completo.
+    Contiene una lista de funciones.
+    """
     def __init__(self, funciones):
         self.funciones = funciones
         
     def traducir(self):
-        return "\n".join(f.traducir() for f in self.funciones)
+        return self.funciones
     
     def generar_codigo(self):
-        codigo = ["section .text", "global _start\n"]
-        
-        # Generar codigo para cada funcion
+        codigo = ""
         for funcion in self.funciones:
-            codigo.append(funcion.generar_codigo())
-        
-        # Agregar codigo de inicio (llamada a main)
-        codigo.extend([
-            "_start:",
-            "    call main",
-            "    mov ebx, eax",  
-            "    mov eax, 1",   
-            "    int 0x80"
-        ])
-        
-        return "\n".join(codigo)
-    
-class NodoCondicional(NodoAST):
-    def __init__(self, condicion, cuerpo_if, cuerpo_else=None):
-        self.condicion = condicion
-        self.cuerpo_if = cuerpo_if
-        self.cuerpo_else = cuerpo_else
-        
-    def generar_codigo(self):
-        codigo = []
-        # Generar codigo para la condicion
-        codigo.append(self.condicion.generar_codigo())
-        
-        # Etiquetas para los saltos
-        label_else = f"L{id(self)}_else"
-        label_fin = f"L{id(self)}_fin"
-        
-        # Saltar si la condicion es falsa
-        codigo.append(f"    cmp eax, 1") 
-        codigo.append(f"    jne {label_else}")
-        
-        # Codigo del if
-        codigo.extend([inst.generar_codigo() for inst in self.cuerpo_if])
-        codigo.append(f"    jmp {label_fin}")
-        
-        # Codigo del else (si existe)
-        codigo.append(f"{label_else}:")
-        if self.cuerpo_else:
-            codigo.extend([inst.generar_codigo() for inst in self.cuerpo_else])
-        
-        codigo.append(f"{label_fin}:")
-        return "\n".join(codigo)
+            codigo += funcion.generar_codigo() + "\n\n"
+        return codigo
     
 class NodoString(NodoAST):
     def __init__(self, valor):
@@ -305,3 +257,15 @@ class NodoString(NodoAST):
         
     def generar_codigo(self):
         return f'    mov eax, {self.valor[1]} ; cargar string'
+    
+class NodoDeclaracion(NodoAST):
+    def __init__(self, tipo, nombre):
+        self.tipo = tipo
+        self.nombre = nombre
+        
+    def traducir(self):
+        return f"{self.tipo} {self.nombre};"
+        
+    def generar_codigo(self):
+        return f"; Declaración de variable: {self.tipo} {self.nombre}"
+    
