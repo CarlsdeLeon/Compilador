@@ -63,7 +63,7 @@ class Parser:
     
     def llamada_funcion(self):
         """
-        Procesa una llamada a funcion, como suma(4, 3);.
+        Procesa una llamada a funcion, como `suma(4, 3);`.
         """
         nombre_funcion = self.coincidir('IDENTIFIER')  # Nombre de la funcion
         self.coincidir('DELIMITER')  # Se espera un '('
@@ -77,8 +77,8 @@ class Parser:
         Procesa los argumentos de una llamada a funcion.
         """
         argumentos = []
-        while self.obtener_token_actual() and self.obtener_token_actual()[1] != ')':  # Mientras no se cierre el paréntesis
-            argumentos.append(self.expresion_ing())  # Analizar la expresión
+        while self.obtener_token_actual() and self.obtener_token_actual()[1] != ')':  # Mientras no se cierre el parentesis
+            argumentos.append(self.expresion_ing())  # Analizar la expresion
             if self.obtener_token_actual() and self.obtener_token_actual()[1] == ',':
                 self.coincidir('DELIMITER')  # Consumir la coma
         return argumentos
@@ -88,10 +88,10 @@ class Parser:
         tipo_retorno = self.coincidir('KEYWORD')  # Tipo de retorno (ej. int)
         nombre_funcion = self.coincidir('IDENTIFIER')  # Nombre de la funcion
         self.coincidir('DELIMITER')  # Se espera un '('
-        parametros = self.parametros()  # Analizar los parámetros
+        parametros = self.parametros()  # Analizar los parametros
         self.coincidir('DELIMITER')  # Se espera un ')'
         self.coincidir('DELIMITER')  # Se espera un '{'
-        cuerpo = self.cuerpo()  # Analizar el cuerpo de la función
+        cuerpo = self.cuerpo()  # Analizar el cuerpo de la funcion
         self.coincidir('DELIMITER')  # Se espera un '}'
         return NodoFuncion(nombre_funcion[1], parametros, cuerpo)
 
@@ -140,30 +140,27 @@ class Parser:
 
             if token_actual[0] == 'KEYWORD':
                 if token_actual[1] == 'if':
-                    instrucciones.append(self.bucle_if())  # Procesar if-else
+                    instrucciones.append(self.bucle_if())
                 elif token_actual[1] == 'print':
-                    instrucciones.append(self.printf_llamada())  # Procesar print
-                elif token_actual[1] == 'for':
-                    instrucciones.append(self.bucle_for())  # Procesar for
-                elif token_actual[1] == 'break':
-                    instrucciones.append(self.break_statement())  # Procesar break
-                elif token_actual[1] == 'while':
-                    instrucciones.append(self.bucle_while())  # Procesar while
+                    instrucciones.append(self.printf_llamada())
                 elif token_actual[1] == 'return':
-                    instrucciones.append(self.retorno())  # Procesar return
+                    instrucciones.append(self.retorno())
+                # ... otros keywords
                 else:
-                    instrucciones.append(self.asignacion())  # Procesar declaraciones
+                    instrucciones.append(self.declaracion())
 
             elif token_actual[0] == 'IDENTIFIER':
                 siguiente_token = self.tokens[self.pos + 1] if self.pos + 1 < len(self.tokens) else None
-                if siguiente_token and siguiente_token[1] == '(':  # Es una llamada a función
-                    instrucciones.append(self.llamada_funcion())  # Procesar llamada a función
-                elif siguiente_token and siguiente_token[1] == '=':
-                    instrucciones.append(self.asignacion())  # Procesar asignación
-                elif siguiente_token and siguiente_token[1] in ['+', '-', '*', '/']:
-                    instrucciones.append(self.operador_abreviado())  # Procesar operadores abreviados
+                if siguiente_token and siguiente_token[1] == '(':
+                    instrucciones.append(self.llamada_funcion())
                 else:
-                    raise SyntaxError(f'Error sintactico: se esperaba una declaracion valida, pero se encontro: {token_actual}')
+                    instrucciones.append(self.asignacion())
+
+            # Añadir manejo de expresiones literales (números, strings)
+            elif token_actual[0] in ['NUMBER', 'STRING']:
+                # Si es un literal suelto, lo tratamos como expresión
+                instrucciones.append(self.expresion_ing())
+                self.coincidir('DELIMITER')  # Consumir el ;
 
             else:
                 raise SyntaxError(f'Error sintactico: se esperaba una declaracion valida, pero se encontro: {token_actual}')
@@ -171,21 +168,23 @@ class Parser:
         return instrucciones
 
     def expresion_ing(self):
-        izquierda = self.termino()  # Obtener el primer término (número o identificador)
+        izquierda = self.termino()  # Obtener el primer término
         while self.obtener_token_actual() and self.obtener_token_actual()[0] == 'OPERATOR':
-            operador = self.coincidir('OPERATOR')  # Consumir el operador
-            derecha = self.termino()  # Obtener el siguiente término
-            izquierda = NodoOperacion(izquierda, operador[1], derecha)  # Crear nodo de operación
+            operador = self.coincidir('OPERATOR')
+            derecha = self.termino()
+            izquierda = NodoOperacion(izquierda, operador[1], derecha)
         return izquierda
-    
+
     def termino(self):
         token = self.obtener_token_actual()
         if token[0] == 'NUMBER':
             return NodoNumero(self.coincidir('NUMBER'))
         elif token[0] == 'IDENTIFIER':
             return NodoIdentificador(self.coincidir('IDENTIFIER'))
+        elif token[0] == 'STRING':
+            return NodoString(self.coincidir('STRING'))
         else:
-            raise SyntaxError(f'Error sintactico: Expresion no valida {token}')
+            raise SyntaxError(f'Error sintactico: Termino no valido {token}')
             
     def expresion(self):
         """
@@ -351,13 +350,16 @@ class Parser:
 
 # === Ejemplo de Uso ===
 codigo_fuente = """
-int suma(int a, int b) {
-    int c = a + b;
-    return c;
+int comparar(int a, int b) {
+    if (a > b) {
+        return 1;
+    } else {
+        return 0;
+    }
 }
 
 void main() {
-    suma(4,3);
+    comparar(5, 3);        
 }
 """
 
@@ -426,3 +428,16 @@ def imprimir_ast(nodo):
 parser = Parser(tokens)
 arbol_ast = parser.parsear()    
 print(json.dumps(imprimir_ast(arbol_ast), indent=1))
+
+
+# nodo_exp = NodoOperacion(NodoNumero(5), '+', NodoNumero(8))
+# print("Expresion original:", nodo_exp)
+
+# exp_opt = nodo_exp.optimizar()
+# print("Expresion optimizada:", exp_opt)
+
+# codigo_python = arbol_ast.traducir()
+# print(codigo_python)
+
+codigo_asm = arbol_ast.generar_codigo()
+print(codigo_asm)
